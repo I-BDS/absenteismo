@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Absenteísmo - Cloud Optimized</title>
+    
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3589/3589030.png">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3589/3589030.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        .cell-falta { background-color: #fecaca; border: 1px solid #f87171; }
+        .cell-atestado { background-color: #a7f3d0; border: 1px solid #34d399; }
+        .cell-declaracao { background-color: #fef08a; border: 1px solid #facc15; }
+        .cell-meio { background-color: #bfdbfe; border: 1px solid #60a5fa; }
+        .tab-content { transition: all 0.3s ease-in-out; }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+
+        .scroll-calendar { max-height: 380px; overflow-y: auto; overflow-x: auto; }
+        .scroll-equipe { max-height: 550px; overflow-y: auto; }
+
+        .kpi-card { transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-2px); }
+        .uppercase-input { text-transform: uppercase; }
+
+        .brand-title {
+            color: #f8fafc;
+            font-weight: 300;
+            letter-spacing: 0.4em;
+            font-size: 1.1rem;
+            border-left: 1px solid #334155;
+            padding-left: 1.5rem;
+        }
+
+        .brand-title-dark {
+            color: #0f172a;
+            font-weight: 300;
+            letter-spacing: 0.4em;
+            font-size: 1.1rem;
+            border-left: 1px solid #cbd5e1;
+            padding-left: 1.5rem;
+        }
+
+        .nav-btn {
+            position: relative;
+            color: #94a3b8;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            transition: color 0.3s;
+        }
+        .nav-active { color: #ffffff; }
+        .nav-active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background-color: #3b82f6;
+            border-radius: 2px;
+        }
+
+        #customToast {
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform: translateY(100px);
+            opacity: 0;
+        }
+        #customToast.show { transform: translateY(0); opacity: 1; }
+
+        .has-comment::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 4px;
+            height: 4px;
+            background-color: #000;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <div id="customToast" class="fixed bottom-5 right-5 z-[200] flex items-center bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl border border-slate-700">
+        <span id="toastMsg">Sincronizando...</span>
+    </div>
+
+    <div id="deleteModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[160] p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+            <div class="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </div>
+            <h3 class="text-xl font-bold mb-2">Remover Colaborador?</h3>
+            <p class="text-slate-500 text-sm mb-6">Esta ação removerá o colaborador e todo o histórico vinculado.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 font-bold text-slate-500">Cancelar</button>
+                <button id="confirmDeleteBtn" class="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="passwordModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[150] p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+            <div class="text-center">
+                <div class="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m0 0v2m0-2h2m-2 0h-2m8-3V7a4 4 0 00-8 0v4M5 11h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2z"/></svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Área Restrita</h3>
+                <p class="text-slate-500 text-sm mb-6">Digite a senha para limpar o histórico do período.</p>
+                <input type="password" id="inputSenha" class="w-full text-center border-2 p-3 rounded-xl mb-6 outline-none text-xl tracking-widest" placeholder="****">
+                <div class="flex gap-3">
+                    <button onclick="closePasswordModal()" class="flex-1 py-3 font-bold text-slate-500">Cancelar</button>
+                    <button onclick="verifyAndClear()" class="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bg-slate-900 p-4 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="brand-title uppercase font-light">Absenteísmo</h1>
+            <div class="flex items-center space-x-4">
+                <button id="btn-tab-main" onclick="showTab('main')" class="nav-btn nav-active">Dashboard</button>
+                <button id="btn-tab-colaboradores" onclick="showTab('colaboradores')" class="nav-btn">Equipe</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 lg:p-6">
+        <div id="main" class="tab-content">
+            <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+                <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-black text-slate-800" id="periodoLabel">Visão Geral</h2>
+                        <p class="text-slate-500 text-xs mt-1 italic uppercase">Controle de Frequência</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-grow sm:flex-none w-full sm:w-40">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </span>
+                            <input type="text" id="searchName" oninput="saveFilters(); buildCalendar()" placeholder="Buscar..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                        </div>
+
+                        <select id="filterSector" onchange="saveFilters(); buildCalendar()" class="px-3 py-2 bg-slate-50 border rounded-xl text-sm outline-none w-full sm:w-auto"></select>
+                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border w-full sm:w-auto">
+                            <input type="date" id="filterStart" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
+                            <input type="date" id="filterEnd" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
+                        </div>
+                        <button onclick="resetDashFilters()" class="bg-slate-200 p-2.5 rounded-xl"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+                        <div class="flex gap-1">
+                            <button onclick="exportToExcel(true)" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold">Excel</button>
+                            <button onclick="exportToPPT()" class="bg-orange-600 text-white px-3 py-2 rounded-xl text-xs font-bold">PPTX</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white shadow-xl overflow-hidden mb-8 border border-slate-300 rounded-2xl">
+                <div class="scroll-calendar">
+                    <table class="w-full text-xs border-collapse border-slate-300">
+                        <thead class="sticky top-0 z-30">
+                            <tr id="calendarHeader" class="bg-slate-50 border-b border-slate-300">
+                                <th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calendarBody" class="divide-y divide-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-8">
+                <div class="kpi-card bg-white p-4 rounded-2xl border shadow-sm"><p class="text-[10px] font-bold text-slate-400 uppercase">Total</p><h4 class="text-xl sm:text-2xl font-black" id="statTotal">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-red-400 shadow-sm"><p class="text-[10px] font-bold text-red-400 uppercase">Faltas</p><h4 class="text-xl sm:text-2xl font-black text-red-600" id="statFaltas">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-green-400 shadow-sm"><p class="text-[10px] font-bold text-green-400 uppercase">Atestados</p><h4 class="text-xl sm:text-2xl font-black text-green-600" id="statAtestados">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-yellow-400 shadow-sm"><p class="text-[10px] font-bold text-yellow-500 uppercase">Declaração</p><h4 class="text-xl sm:text-2xl font-black text-yellow-600" id="statDeclaracao">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-blue-400 shadow-sm"><p class="text-[10px] font-bold text-blue-400 uppercase">Meio</p><h4 class="text-xl sm:text-2xl font-black text-blue-600" id="statMeio">0</h4></div>
+            </div>
+
+            <div class="flex justify-end mb-4">
+                <button onclick="toggleDataLabels()" id="btnLabels" class="text-[10px] font-bold px-4 py-2 bg-slate-200 rounded-lg text-slate-600 hover:bg-slate-300 transition-all uppercase tracking-widest">
+                    Exibir Números: OFF
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-10">
+                <div class="bg-white p-4 rounded-2xl border shadow-sm h-80 sm:h-[450px]"><canvas id="colabBarChart"></canvas></div>
+                <div class="bg-white p-4 rounded-2xl border shadow-sm h-80 sm:h-[450px]"><canvas id="sectorBarChart"></canvas></div>
+                <div class="bg-white p-4 rounded-2xl border shadow-sm h-80 sm:h-[450px]"><canvas id="pieChart"></canvas></div>
+            </div>
+        </div>
+
+        <div id="colaboradores" class="tab-content hidden">
+            <div class="bg-white p-4 sm:p-8 rounded-3xl shadow-xl border border-slate-200 max-w-5xl mx-auto">
+                <div class="flex flex-col items-center gap-4 mb-8">
+                    <h2 class="brand-title-dark uppercase font-light">Equipe</h2>
+                    <div class="flex gap-2 w-full justify-center">
+                        <button onclick="openPasswordModal()" class="bg-red-50 text-red-600 text-[10px] font-bold px-4 py-2 rounded-xl border border-red-200">LIMPAR PERÍODO</button>
+                        <span id="countEquipe" class="bg-blue-600 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase">Total: 0</span>
+                    </div>
+                </div>
+                <div id="formCadastro" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-8 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300">
+                    <input type="hidden" id="editId">
+                    <input type="text" id="nome" placeholder="NOME" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
+                    <input type="text" id="setor" placeholder="SETOR" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
+                    <input type="text" id="usuario" placeholder="USUÁRIO" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
+                    <button onclick="saveEmployee()" id="btnSave" class="bg-slate-900 text-white rounded-xl font-bold p-3">SALVAR</button>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 mb-6">
+                    <input type="text" id="searchEquipe" oninput="renderTable()" placeholder="Filtrar Nome ou Usuário..." class="flex-grow p-3 bg-white border rounded-xl text-sm shadow-sm">
+                    <select id="filterEquipeSetor" onchange="renderTable()" class="p-3 bg-white border rounded-xl text-sm shadow-sm"></select>
+                </div>
+                <div class="scroll-equipe rounded-xl border border-slate-300">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-900 text-white text-[10px] uppercase sticky top-0 z-10"><tr>
+                            <th class="p-4">ID</th><th class="p-4">Colaborador</th><th class="p-4">Setor</th><th class="p-4">Usuário</th><th class="p-4 text-center">Ações</th>
+                        </tr></thead>
+                        <tbody id="employeeTableBody" class="divide-y divide-slate-300 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalOcorrenciaContainer" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 class="text-xl font-black text-slate-800 mb-1" id="modalTitle">Lançar Registro</h3>
+            <p id="modalSubtitle" class="text-xs text-blue-600 mb-6 font-bold"></p>
+            <div class="space-y-4">
+                <select id="motivo" class="border-2 p-3 rounded-xl w-full bg-slate-50 font-bold outline-none">
+                    <option value="">✅ PRESENTE</option>
+                    <option value="Falta">❌ FALTA</option>
+                    <option value="Atestado">🏥 ATESTADO</option>
+                    <option value="Declaração">📄 DECLARAÇÃO</option>
+                    <option value="Meio Expediente">🕒 MEIO PERÍODO</option>
+                </select>
+                <textarea id="comentario" oninput="this.value = this.value.toUpperCase()" rows="3" class="border-2 p-3 rounded-xl w-full text-sm outline-none" placeholder="OBSERVAÇÕES..."></textarea>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold text-slate-500">CANCELAR</button>
+                    <button onclick="confirmOcorrencia()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg">SALVAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const _URL = "https://gdvevopihqxwfcvzwjkv.supabase.co";
+        const _KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkdmV2b3BpaHF4d2Zjdnp3amt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNjg4MjMsImV4cCI6MjA4Njg0NDgyM30.d6yJeghj1OJC36A6sb9kBP903pz2i2jhpC2BMaL0Ekw";
+        const sb = supabase.createClient(_URL, _KEY);
+
+        Chart.register(ChartDataLabels);
+
+        let employees = [];
+        let ocorrencias = [];
+        let currentModalData = null;
+        let colabBarChart, pieChart, sectorBarChart;
+        let showLabels = false;
+
+        async function init() {
+            loadFilters(); // Carrega filtros salvos ou iniciais
+            await fetchData();
+            renderTable();
+            buildCalendar();
+        }
+
+        function getInitialCycleDates() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            let start, end;
+
+            if (today.getDate() >= 21) {
+                start = new Date(year, month, 21);
+                end = new Date(year, month + 1, 20);
+            } else {
+                start = new Date(year, month - 1, 21);
+                end = new Date(year, month, 20);
+            }
+            return {
+                start: start.toISOString().split('T')[0],
+                end: end.toISOString().split('T')[0]
+            };
+        }
+
+        function saveFilters() {
+            const filters = {
+                start: document.getElementById('filterStart').value,
+                end: document.getElementById('filterEnd').value,
+                sector: document.getElementById('filterSector').value,
+                search: document.getElementById('searchName').value
+            };
+            localStorage.setItem('absenteeism_filters', JSON.stringify(filters));
+        }
+
+        function loadFilters() {
+            const saved = localStorage.getItem('absenteeism_filters');
+            if (saved) {
+                const f = JSON.parse(saved);
+                document.getElementById('filterStart').value = f.start;
+                document.getElementById('filterEnd').value = f.end;
+                document.getElementById('filterSector').value = f.sector || "";
+                document.getElementById('searchName').value = f.search || "";
+            } else {
+                const cycle = getInitialCycleDates();
+                document.getElementById('filterStart').value = cycle.start;
+                document.getElementById('filterEnd').value = cycle.end;
+            }
+        }
+
+        async function fetchData() {
+            const dataInicio = document.getElementById('filterStart').value;
+            const dataFim = document.getElementById('filterEnd').value;
+
+            const { data: colabs, error: err1 } = await sb
+                .from('colaboradores')
+                .select('id, nome, setor, usuario')
+                .order('id', { ascending: true });
+            
+            if(err1) return showToast("❌ Erro ao buscar colaboradores");
+            employees = colabs || [];
+
+            let query = sb.from('ocorrencias').select('id, colaborador_id, data, motivo, comentario');
+            if (dataInicio && dataFim) query = query.gte('data', dataInicio).lte('data', dataFim);
+            
+            const { data: ocors, error: err2 } = await query;
+            if(err2) return showToast("❌ Erro ao buscar ocorrências");
+            
+            ocorrencias = (ocors || []).map(o => {
+                const emp = employees.find(e => e.id === o.colaborador_id);
+                return {
+                    id: o.id,
+                    colab: emp?.nome || 'DESCONHECIDO',
+                    setor: emp?.setor || '-',
+                    usuario: emp?.usuario || '-',
+                    colabId: o.colaborador_id,
+                    data: o.data,
+                    motivo: o.motivo,
+                    comentario: o.comentario
+                }
+            });
+            populateSectorFilter();
+            showToast("✅ Sincronizado");
+        }
+
+        async function updateView() {
+            await fetchData();
+            buildCalendar();
+        }
+
+        function toggleDataLabels() {
+            showLabels = !showLabels;
+            document.getElementById('btnLabels').innerText = `Exibir Números: ${showLabels ? 'ON' : 'OFF'}`;
+            buildCalendar();
+        }
+
+        async function openDeleteModal(id) {
+            document.getElementById('deleteModal').classList.remove('hidden');
+            document.getElementById('confirmDeleteBtn').onclick = async () => {
+                const { error } = await sb.from('colaboradores').delete().eq('id', id);
+                if(error) return showToast("❌ Erro ao deletar");
+                await fetchData();
+                renderTable();
+                buildCalendar();
+                closeDeleteModal();
+            };
+        }
+        function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
+
+        async function saveEmployee() {
+            const n = document.getElementById('nome').value, s = document.getElementById('setor').value, u = document.getElementById('usuario').value, id = document.getElementById('editId').value;
+            if(!n || !s) return showToast("⚠️ Nome e Setor obrigatórios!");
+            if(id === "") {
+                await sb.from('colaboradores').insert([{ nome: n, setor: s, usuario: u }]);
+            } else {
+                await sb.from('colaboradores').update({ nome: n, setor: s, usuario: u }).eq('id', id);
+                document.getElementById('editId').value = "";
+                document.getElementById('btnSave').innerText = "SALVAR";
+            }
+            document.getElementById('nome').value = ""; document.getElementById('setor').value = ""; document.getElementById('usuario').value = "";
+            await fetchData();
+            renderTable();
+            buildCalendar();
+        }
+
+        function editEmployee(id) {
+            const e = employees.find(emp => emp.id == id);
+            if (!e) return;
+            showTab('colaboradores'); // Navega para a aba de equipe
+            document.getElementById('nome').value = e.nome;
+            document.getElementById('setor').value = e.setor;
+            document.getElementById('usuario').value = e.usuario;
+            document.getElementById('editId').value = e.id;
+            document.getElementById('btnSave').innerText = "ATUALIZAR";
+            
+            // Scroll suave para o formulário
+            document.getElementById('formCadastro').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function confirmOcorrencia() {
+            const m = document.getElementById('motivo').value;
+            const c = document.getElementById('comentario').value;
+            const emp = employees.find(e => e.nome === currentModalData.nome);
+            if (!emp) return showToast("❌ Colaborador não encontrado");
+
+            await sb.from('ocorrencias').delete().eq('colaborador_id', emp.id).eq('data', currentModalData.data);
+            if(m !== "" || c.trim() !== "") {
+                await sb.from('ocorrencias').insert([{
+                    colaborador_id: emp.id,
+                    data: currentModalData.data,
+                    motivo: m,
+                    comentario: c
+                }]);
+            }
+            closeModal();
+            await fetchData(); // Filtros persistidos via inputs que não mudaram
+            buildCalendar();
+        }
+
+        async function verifyAndClear() {
+            if(document.getElementById('inputSenha').value !== "2001") return showToast("⚠️ Senha incorreta!");
+            const start = document.getElementById('filterStart').value;
+            const end = document.getElementById('filterEnd').value;
+            await sb.from('ocorrencias').delete().gte('data', start).lte('data', end);
+            await fetchData();
+            buildCalendar();
+            closePasswordModal();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('customToast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function resetDashFilters() {
+            localStorage.removeItem('absenteeism_filters');
+            document.getElementById('searchName').value = "";
+            document.getElementById('filterSector').value = "";
+            const cycle = getInitialCycleDates();
+            document.getElementById('filterStart').value = cycle.start;
+            document.getElementById('filterEnd').value = cycle.end;
+            updateView();
+        }
+
+        function populateSectorFilter() {
+            const currentDashSector = document.getElementById('filterSector').value;
+            const currentEquipeSector = document.getElementById('filterEquipeSetor').value;
+            const unique = [...new Set(employees.map(e => e.setor))].sort();
+            const options = '<option value="">Todos os Setores</option>' + unique.map(s => `<option value="${s}">${s}</option>`).join('');
+            
+            document.getElementById('filterSector').innerHTML = options;
+            document.getElementById('filterEquipeSetor').innerHTML = options;
+
+            if (unique.includes(currentDashSector)) document.getElementById('filterSector').value = currentDashSector;
+            if (unique.includes(currentEquipeSector)) document.getElementById('filterEquipeSetor').value = currentEquipeSector;
+        }
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById('btn-tab-main').className = tabId === 'main' ? 'nav-btn nav-active' : 'nav-btn';
+            document.getElementById('btn-tab-colaboradores').className = tabId === 'colaboradores' ? 'nav-btn nav-active' : 'nav-btn';
+        }
+
+        async function buildCalendar() {
+            const startVal = document.getElementById('filterStart').value;
+            const endVal = document.getElementById('filterEnd').value;
+            if(!startVal || !endVal) return;
+
+            const header = document.getElementById('calendarHeader');
+            const body = document.getElementById('calendarBody');
+            const searchTerm = document.getElementById('searchName').value.toLowerCase();
+            const sectorTerm = document.getElementById('filterSector').value;
+
+            const dateRange = [];
+            let curr = new Date(startVal + 'T00:00:00');
+            const endLimit = new Date(endVal + 'T00:00:00');
+            while(curr <= endLimit) { dateRange.push(new Date(curr)); curr.setDate(curr.getDate()+1); }
+            
+            const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+            header.innerHTML = '<th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>';
+            
+            dateRange.forEach(d => { 
+                const isSunday = d.getDay() === 0;
+                header.innerHTML += `<th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}"><div class="flex flex-col items-center"><span>${d.getDate()}</span><span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span></div></th>`; 
+            });
+
+            const filteredEmps = employees.filter(e => e.nome.toLowerCase().includes(searchTerm) && (sectorTerm === "" || e.setor === sectorTerm));
+            body.innerHTML = '';
+            
+            filteredEmps.forEach(emp => {
+                let row = `<tr><td class="p-4 border-r border-slate-300 sticky left-0 bg-white font-semibold z-10 text-[10px] sm:text-xs">${emp.nome}</td>`;
+                dateRange.forEach(d => {
+                    const ds = d.toISOString().split('T')[0];
+                    const oc = ocorrencias.find(o => o.colabId === emp.id && o.data === ds);
+                    const isSunday = d.getDay() === 0;
+                    let cl = "", initial = "", commentClass = (oc && oc.comentario && oc.comentario.trim() !== "") ? "has-comment" : "";
+                    if (oc) {
+                        if (oc.motivo === 'Falta') { cl = 'cell-falta'; initial = 'F'; }
+                        else if (oc.motivo === 'Atestado') { cl = 'cell-atestado'; initial = 'A'; }
+                        else if (oc.motivo === 'Declaração') { cl = 'cell-declaracao'; initial = 'D'; }
+                        else if (oc.motivo === 'Meio Expediente') { cl = 'cell-meio'; initial = 'M'; }
+                    }
+                    if (cl === "" && isSunday) cl = "bg-red-50";
+                    row += `<td onclick="openModal('${emp.nome}', '${ds}')" class="border-r border-slate-300 p-1 cursor-pointer text-center font-bold relative ${cl} ${commentClass}">${initial}</td>`;
+                });
+                body.innerHTML += row + '</tr>';
+            });
+            updateCharts(startVal, endVal, filteredEmps);
+        }
+
+        function updateCharts(start, end, fEmps) {
+            const ids = fEmps.map(e => e.id);
+            const filtered = ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId) && o.motivo !== "");
+            const motCounts = { 'Falta': 0, 'Atestado': 0, 'Declaração': 0, 'Meio Expediente': 0 };
+            filtered.forEach(o => { if(motCounts[o.motivo] !== undefined) motCounts[o.motivo]++; });
+            
+            document.getElementById('statTotal').innerText = filtered.length;
+            document.getElementById('statFaltas').innerText = motCounts['Falta'];
+            document.getElementById('statAtestados').innerText = motCounts['Atestado'];
+            document.getElementById('statDeclaracao').innerText = motCounts['Declaração'];
+            document.getElementById('statMeio').innerText = motCounts['Meio Expediente'];
+
+            if (colabBarChart) colabBarChart.destroy();
+            if (pieChart) pieChart.destroy();
+            if (sectorBarChart) sectorBarChart.destroy();
+
+            const chartConfig = {
+                display: showLabels,
+                color: '#fff',
+                formatter: (val) => val > 0 ? val : ''
+            };
+
+            const listColabs = fEmps.map(e => {
+                const colabOcors = filtered.filter(o => o.colabId === e.id);
+                const ausencias = colabOcors.filter(o => o.motivo !== 'Meio Expediente').length;
+                const meio = colabOcors.filter(o => o.motivo === 'Meio Expediente').length;
+                return { nome: e.nome, ausencias, meio, total: ausencias + meio };
+            }).filter(d => d.total > 0).sort((a, b) => b.total - a.total);
+
+            colabBarChart = new Chart(document.getElementById('colabBarChart'), {
+                type: 'bar',
+                data: {
+                    labels: listColabs.map(d => d.nome),
+                    datasets: [
+                        { label: 'Ausências', data: listColabs.map(d => d.ausencias), backgroundColor: '#ef4444', borderRadius: 4 },
+                        { label: 'Meio Período', data: listColabs.map(d => d.meio), backgroundColor: '#3b82f6', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false, 
+                    scales: { x: { stacked: true }, y: { stacked: true } },
+                    plugins: { title: { display: true, text: 'POR COLABORADOR' }, datalabels: chartConfig }
+                }
+            });
+
+            const sectorData = {};
+            filtered.forEach(o => { if(o.setor) sectorData[o.setor] = (sectorData[o.setor] || 0) + 1; });
+            const sortedSectors = Object.entries(sectorData).sort((a,b) => b[1] - a[1]);
+
+            sectorBarChart = new Chart(document.getElementById('sectorBarChart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedSectors.map(d => d[0]),
+                    datasets: [{ label: 'Registros', data: sortedSectors.map(d => d[1]), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+                },
+                options: {
+                    maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { title: { display: true, text: 'RANKING POR SETOR' }, datalabels: chartConfig }
+                }
+            });
+
+            pieChart = new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: { labels: Object.keys(motCounts), datasets: [{ data: Object.values(motCounts), backgroundColor: ['#fca5a5', '#6ee7b7', '#fde047', '#93c5fd'] }] },
+                options: { maintainAspectRatio: false, plugins: { title: { display: true, text: 'MOTIVOS' }, datalabels: chartConfig } }
+            });
+        }
+
+        function renderTable() {
+            const search = document.getElementById('searchEquipe').value.toLowerCase();
+            const sector = document.getElementById('filterEquipeSetor').value;
+            const filtered = employees.filter(e => (e.nome.toLowerCase().includes(search) || (e.usuario && e.usuario.toLowerCase().includes(search))) && (sector === "" || e.setor === sector));
+            document.getElementById('countEquipe').innerText = `Total: ${filtered.length}`;
+            document.getElementById('employeeTableBody').innerHTML = filtered.map((e) => `
+                <tr class="hover:bg-slate-50 border-b border-slate-300">
+                    <td class="p-4 text-slate-400 font-mono text-xs">${e.id}</td>
+                    <td class="p-4 font-bold uppercase text-xs">${e.nome}</td>
+                    <td class="p-4 text-slate-500 uppercase text-xs">${e.setor}</td>
+                    <td class="p-4 text-slate-500 uppercase text-xs">${e.usuario || '-'}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="editEmployee('${e.id}')" class="text-blue-600 font-bold mr-3">EDITAR</button>
+                        <button onclick="openDeleteModal('${e.id}')" class="text-red-400 font-bold">EXCLUIR</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function openModal(nome, data) {
+            currentModalData = { nome, data };
+            const emp = employees.find(e => e.nome === nome);
+            const ex = ocorrencias.find(o => o.colabId === emp.id && o.data === data);
+            document.getElementById('modalTitle').innerText = nome;
+            document.getElementById('modalSubtitle').innerText = data;
+            document.getElementById('motivo').value = ex ? ex.motivo : "";
+            document.getElementById('comentario').value = ex ? ex.comentario : "";
+            document.getElementById('modalOcorrenciaContainer').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('modalOcorrenciaContainer').classList.add('hidden'); }
+        function openPasswordModal() { document.getElementById('passwordModal').classList.remove('hidden'); }
+        function closePasswordModal() { document.getElementById('passwordModal').classList.add('hidden'); }
+
+        function exportToPPT() {
+            const originalLabels = showLabels; showLabels = true; buildCalendar();
+            setTimeout(() => {
+                const pptx = new PptxGenJS();
+                const start = document.getElementById('filterStart').value, end = document.getElementById('filterEnd').value, sector = document.getElementById('filterSector').value || "TODOS OS SETORES";
+                let s1 = pptx.addSlide(); s1.background = { fill: "0F172A" };
+                s1.addText("RELATÓRIO DE ABSENTEÍSMO", { x: 1, y: 1.2, w: 8, h: 1, fontSize: 32, color: "60a5fa", bold: true, align: "center" });
+                s1.addText(`SETOR: ${sector.toUpperCase()}`, { x: 1, y: 2.0, w: 8, h: 0.5, fontSize: 18, color: "FFFFFF", bold: true, align: "center" });
+                s1.addText(`Período: ${start} até ${end}`, { x: 1, y: 2.7, w: 8, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
+                let s2 = pptx.addSlide(); s2.addText("ESTATÍSTICAS GERAIS", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
+                s2.addImage({ data: document.getElementById('colabBarChart').toDataURL(), x: 0.5, y: 0.8, w: 4.2, h: 4 });
+                s2.addImage({ data: document.getElementById('sectorBarChart').toDataURL(), x: 5.2, y: 0.8, w: 4.2, h: 4 });
+                let s3 = pptx.addSlide(); s3.addText("DISTRIBUIÇÃO POR MOTIVO", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
+                s3.addImage({ data: document.getElementById('pieChart').toDataURL(), x: 2.5, y: 1, w: 5, h: 4 });
+                pptx.writeFile({ fileName: "Absenteísmo.pptx" });
+                showLabels = originalLabels; buildCalendar();
+            }, 600);
+        }
+
+        async function exportToExcel(useFilters = true) {
+            let dataToExport = [];
+            const sectorTerm = document.getElementById('filterSector').value;
+            const start = document.getElementById('filterStart').value;
+            const end = document.getElementById('filterEnd').value;
+            
+            dataToExport = ocorrencias.filter(o => {
+                const dateMatch = o.data >= start && o.data <= end;
+                const sectorMatch = sectorTerm === "" || o.setor === sectorTerm;
+                return dateMatch && sectorMatch;
+            });
+
+            const formatted = dataToExport.map(({ id, colab, setor, usuario, data, motivo, comentario }) => ({
+                ID: id, Colaborador: colab, Setor: setor, Usuario: usuario, Data: data, Motivo: motivo, Comentario: comentario
+            }));
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatted), "Ocorrências");
+            XLSX.writeFile(wb, "ausencias_filtradas.xlsx");
+        }
+
+        init();
+    </script>
+</body>
+</html>
