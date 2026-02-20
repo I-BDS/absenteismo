@@ -2,8 +2,8 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa de Absenteísmo - Cloud Optimized</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mapa de Absenteísmo</title>
     
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,10 +15,22 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sar: env(safe-area-inset-right);
+            --sab: env(safe-area-inset-bottom);
+            --sal: env(safe-area-inset-left);
+        }
+
+        body {
+            padding-bottom: var(--sab);
+            -webkit-tap-highlight-color: transparent;
+        }
+
         .cell-falta { background-color: #fecaca; border: 1px solid #f87171; }
         .cell-atestado { background-color: #a7f3d0; border: 1px solid #34d399; }
         .cell-declaracao { background-color: #fef08a; border: 1px solid #facc15; }
@@ -29,8 +41,13 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
 
-        .scroll-calendar { max-height: 380px; overflow-y: auto; overflow-x: auto; }
-        .scroll-equipe { max-height: 550px; overflow-y: auto; }
+        .scroll-calendar { 
+            max-height: 450px; 
+            overflow-y: auto; 
+            overflow-x: auto; 
+            -webkit-overflow-scrolling: touch;
+        }
+        .scroll-equipe { max-height: 550px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
         .kpi-card { transition: transform 0.2s; }
         .kpi-card:hover { transform: translateY(-2px); }
@@ -45,13 +62,14 @@
             padding-left: 1.5rem;
         }
 
-        .brand-title-dark {
-            color: #0f172a;
-            font-weight: 300;
-            letter-spacing: 0.4em;
-            font-size: 1.1rem;
-            border-left: 1px solid #cbd5e1;
-            padding-left: 1.5rem;
+        .brand-title-minimalist {
+            color: #64748b;
+            font-weight: 200;
+            letter-spacing: 0.5em;
+            font-size: 1.25rem;
+            border-left: 1px solid #e2e8f0;
+            padding-left: 2rem;
+            text-transform: uppercase;
         }
 
         .nav-btn {
@@ -79,6 +97,7 @@
             transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
             transform: translateY(100px);
             opacity: 0;
+            bottom: calc(20px + var(--sab));
         }
         #customToast.show { transform: translateY(0); opacity: 1; }
 
@@ -87,16 +106,22 @@
             position: absolute;
             top: 2px;
             right: 2px;
-            width: 4px;
-            height: 4px;
+            width: 5px;
+            height: 5px;
             background-color: #000;
             border-radius: 50%;
+        }
+
+        @media (max-width: 640px) {
+            .brand-title { letter-spacing: 0.2em; font-size: 0.9rem; padding-left: 0.75rem; }
+            .brand-title-minimalist { letter-spacing: 0.3em; font-size: 1rem; padding-left: 1rem; }
+            td, th { min-width: 40px; }
         }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800">
 
-    <div id="customToast" class="fixed bottom-5 right-5 z-[200] flex items-center bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl border border-slate-700">
+    <div id="customToast" class="fixed right-5 z-[200] flex items-center bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl border border-slate-700">
         <span id="toastMsg">Sincronizando...</span>
     </div>
 
@@ -131,10 +156,10 @@
         </div>
     </div>
 
-    <nav class="bg-slate-900 p-4 text-white shadow-lg sticky top-0 z-50">
+    <nav class="bg-slate-900 p-4 text-white shadow-lg sticky top-0 z-50 pt-[calc(1rem+var(--sat))]">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="brand-title uppercase font-light">Absenteísmo</h1>
-            <div class="flex items-center space-x-4">
+            <h1 class="brand-title uppercase font-light">Mapa de Absenteísmo</h1>
+            <div class="flex items-center space-x-2 sm:space-x-4">
                 <button id="btn-tab-main" onclick="showTab('main')" class="nav-btn nav-active">Dashboard</button>
                 <button id="btn-tab-colaboradores" onclick="showTab('colaboradores')" class="nav-btn">Equipe</button>
             </div>
@@ -158,7 +183,7 @@
                         </div>
 
                         <select id="filterSector" onchange="saveFilters(); buildCalendar()" class="px-3 py-2 bg-slate-50 border rounded-xl text-sm outline-none w-full sm:w-auto"></select>
-                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border w-full sm:w-auto">
+                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border w-full sm:w-auto overflow-x-auto">
                             <input type="date" id="filterStart" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
                             <input type="date" id="filterEnd" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
                         </div>
@@ -207,11 +232,11 @@
 
         <div id="colaboradores" class="tab-content hidden">
             <div class="bg-white p-4 sm:p-8 rounded-3xl shadow-xl border border-slate-200 max-w-5xl mx-auto">
-                <div class="flex flex-col items-center gap-4 mb-8">
-                    <h2 class="brand-title-dark uppercase font-light">Equipe</h2>
+                <div class="flex flex-col items-center gap-6 mb-10">
+                    <h2 class="brand-title-minimalist">Gestão de Equipe</h2>
                     <div class="flex gap-2 w-full justify-center">
-                        <button onclick="openPasswordModal()" class="bg-red-50 text-red-600 text-[10px] font-bold px-4 py-2 rounded-xl border border-red-200">LIMPAR PERÍODO</button>
-                        <span id="countEquipe" class="bg-blue-600 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase">Total: 0</span>
+                        <button onclick="openPasswordModal()" class="bg-red-50 text-red-600 text-[10px] font-bold px-4 py-2 rounded-xl border border-red-200 hover:bg-red-100 transition-colors">LIMPAR PERÍODO</button>
+                        <span id="countEquipe" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase">Total: 0</span>
                     </div>
                 </div>
                 <div id="formCadastro" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-8 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300">
@@ -228,7 +253,7 @@
                 <div class="scroll-equipe rounded-xl border border-slate-300">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-900 text-white text-[10px] uppercase sticky top-0 z-10"><tr>
-                            <th class="p-4">ID</th><th class="p-4">Colaborador</th><th class="p-4">Setor</th><th class="p-4">Usuário</th><th class="p-4 text-center">Ações</th>
+                            <th class="p-4">Colaborador</th><th class="p-4">Setor</th><th class="p-4">Usuário</th><th class="p-4 text-center">Ações</th>
                         </tr></thead>
                         <tbody id="employeeTableBody" class="divide-y divide-slate-300 bg-white"></tbody>
                     </table>
@@ -272,10 +297,22 @@
         let showLabels = false;
 
         async function init() {
-            loadFilters(); // Carrega filtros salvos ou iniciais
+            loadFilters(); 
             await fetchData();
             renderTable();
             buildCalendar();
+        }
+
+        /**
+         * CORREÇÃO TÉCNICA: Evita que o fuso horário altere o dia selecionado.
+         * Garante interpretação literal do ano-mês-dia.
+         */
+        function parseDateSafely(dateStr) {
+            if (!dateStr) return null;
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return null;
+            // Usamos o meio do dia (12:00) para neutralizar variações de fuso horário local
+            return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
         }
 
         function getInitialCycleDates() {
@@ -329,7 +366,7 @@
             const { data: colabs, error: err1 } = await sb
                 .from('colaboradores')
                 .select('id, nome, setor, usuario')
-                .order('id', { ascending: true });
+                .order('nome', { ascending: true });
             
             if(err1) return showToast("❌ Erro ao buscar colaboradores");
             employees = colabs || [];
@@ -385,9 +422,9 @@
             const n = document.getElementById('nome').value, s = document.getElementById('setor').value, u = document.getElementById('usuario').value, id = document.getElementById('editId').value;
             if(!n || !s) return showToast("⚠️ Nome e Setor obrigatórios!");
             if(id === "") {
-                await sb.from('colaboradores').insert([{ nome: n, setor: s, usuario: u }]);
+                await sb.from('colaboradores').insert([{ nome: n.trim().toUpperCase(), setor: s.trim().toUpperCase(), usuario: u.trim().toUpperCase() }]);
             } else {
-                await sb.from('colaboradores').update({ nome: n, setor: s, usuario: u }).eq('id', id);
+                await sb.from('colaboradores').update({ nome: n.trim().toUpperCase(), setor: s.trim().toUpperCase(), usuario: u.trim().toUpperCase() }).eq('id', id);
                 document.getElementById('editId').value = "";
                 document.getElementById('btnSave').innerText = "SALVAR";
             }
@@ -400,15 +437,21 @@
         function editEmployee(id) {
             const e = employees.find(emp => emp.id == id);
             if (!e) return;
-            showTab('colaboradores'); // Navega para a aba de equipe
+            showTab('colaboradores');
             document.getElementById('nome').value = e.nome;
             document.getElementById('setor').value = e.setor;
             document.getElementById('usuario').value = e.usuario;
             document.getElementById('editId').value = e.id;
             document.getElementById('btnSave').innerText = "ATUALIZAR";
             
-            // Scroll suave para o formulário
-            document.getElementById('formCadastro').scrollIntoView({ behavior: 'smooth' });
+            const form = document.getElementById('formCadastro');
+            const offset = 100;
+            const bodyRect = document.body.getBoundingClientRect().top;
+            const elementRect = form.getBoundingClientRect().top;
+            const elementPosition = elementRect - bodyRect;
+            const offsetPosition = elementPosition - offset;
+
+            window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
         }
 
         async function confirmOcorrencia() {
@@ -418,16 +461,16 @@
             if (!emp) return showToast("❌ Colaborador não encontrado");
 
             await sb.from('ocorrencias').delete().eq('colaborador_id', emp.id).eq('data', currentModalData.data);
-            if(m !== "" || c.trim() !== "") {
+            if(m !== "" || (c && c.trim() !== "")) {
                 await sb.from('ocorrencias').insert([{
                     colaborador_id: emp.id,
                     data: currentModalData.data,
                     motivo: m,
-                    comentario: c
+                    comentario: c.trim().toUpperCase()
                 }]);
             }
             closeModal();
-            await fetchData(); // Filtros persistidos via inputs que não mudaram
+            await fetchData();
             buildCalendar();
         }
 
@@ -439,6 +482,7 @@
             await fetchData();
             buildCalendar();
             closePasswordModal();
+            document.getElementById('inputSenha').value = "";
         }
 
         function showToast(msg) {
@@ -476,6 +520,14 @@
             document.getElementById(tabId).classList.remove('hidden');
             document.getElementById('btn-tab-main').className = tabId === 'main' ? 'nav-btn nav-active' : 'nav-btn';
             document.getElementById('btn-tab-colaboradores').className = tabId === 'colaboradores' ? 'nav-btn nav-active' : 'nav-btn';
+            
+            if(tabId === 'main') {
+                setTimeout(() => {
+                    if(colabBarChart) colabBarChart.resize();
+                    if(pieChart) pieChart.resize();
+                    if(sectorBarChart) sectorBarChart.resize();
+                }, 150);
+            }
         }
 
         async function buildCalendar() {
@@ -485,13 +537,22 @@
 
             const header = document.getElementById('calendarHeader');
             const body = document.getElementById('calendarBody');
-            const searchTerm = document.getElementById('searchName').value.toLowerCase();
+            const searchTerm = document.getElementById('searchName').value.trim().toLowerCase();
             const sectorTerm = document.getElementById('filterSector').value;
 
             const dateRange = [];
-            let curr = new Date(startVal + 'T00:00:00');
-            const endLimit = new Date(endVal + 'T00:00:00');
-            while(curr <= endLimit) { dateRange.push(new Date(curr)); curr.setDate(curr.getDate()+1); }
+            let curr = parseDateSafely(startVal);
+            const endLimit = parseDateSafely(endVal);
+            
+            if(!curr || !endLimit) return;
+
+            // Limite de segurança para evitar loops infinitos em caso de erro na data
+            let safetyCounter = 0;
+            while(curr <= endLimit && safetyCounter < 366) { 
+                dateRange.push(new Date(curr)); 
+                curr.setDate(curr.getDate() + 1); 
+                safetyCounter++;
+            }
             
             const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
             header.innerHTML = '<th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>';
@@ -501,17 +562,26 @@
                 header.innerHTML += `<th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}"><div class="flex flex-col items-center"><span>${d.getDate()}</span><span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span></div></th>`; 
             });
 
-            const filteredEmps = employees.filter(e => e.nome.toLowerCase().includes(searchTerm) && (sectorTerm === "" || e.setor === sectorTerm));
+            const filteredEmps = employees
+                .filter(e => e.nome.toLowerCase().includes(searchTerm) && (sectorTerm === "" || e.setor === sectorTerm))
+                .sort((a, b) => a.nome.localeCompare(b.nome));
+
             body.innerHTML = '';
             
             filteredEmps.forEach(emp => {
                 let row = `<tr><td class="p-4 border-r border-slate-300 sticky left-0 bg-white font-semibold z-10 text-[10px] sm:text-xs">${emp.nome}</td>`;
                 dateRange.forEach(d => {
-                    const ds = d.toISOString().split('T')[0];
+                    // Formatação YYYY-MM-DD para o fuso correto na comparação
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const ds = `${year}-${month}-${day}`;
+
                     const oc = ocorrencias.find(o => o.colabId === emp.id && o.data === ds);
                     const isSunday = d.getDay() === 0;
                     let cl = "", initial = "", commentClass = (oc && oc.comentario && oc.comentario.trim() !== "") ? "has-comment" : "";
-                    if (oc) {
+                    
+                    if (oc && oc.motivo) {
                         if (oc.motivo === 'Falta') { cl = 'cell-falta'; initial = 'F'; }
                         else if (oc.motivo === 'Atestado') { cl = 'cell-atestado'; initial = 'A'; }
                         else if (oc.motivo === 'Declaração') { cl = 'cell-declaracao'; initial = 'D'; }
@@ -527,7 +597,8 @@
 
         function updateCharts(start, end, fEmps) {
             const ids = fEmps.map(e => e.id);
-            const filtered = ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId) && o.motivo !== "");
+            const filtered = ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId) && o.motivo && o.motivo !== "");
+
             const motCounts = { 'Falta': 0, 'Atestado': 0, 'Declaração': 0, 'Meio Expediente': 0 };
             filtered.forEach(o => { if(motCounts[o.motivo] !== undefined) motCounts[o.motivo]++; });
             
@@ -541,11 +612,7 @@
             if (pieChart) pieChart.destroy();
             if (sectorBarChart) sectorBarChart.destroy();
 
-            const chartConfig = {
-                display: showLabels,
-                color: '#fff',
-                formatter: (val) => val > 0 ? val : ''
-            };
+            const chartConfig = { display: showLabels, color: '#fff', formatter: (val) => val > 0 ? val : '' };
 
             const listColabs = fEmps.map(e => {
                 const colabOcors = filtered.filter(o => o.colabId === e.id);
@@ -554,53 +621,66 @@
                 return { nome: e.nome, ausencias, meio, total: ausencias + meio };
             }).filter(d => d.total > 0).sort((a, b) => b.total - a.total);
 
-            colabBarChart = new Chart(document.getElementById('colabBarChart'), {
-                type: 'bar',
-                data: {
-                    labels: listColabs.map(d => d.nome),
-                    datasets: [
-                        { label: 'Ausências', data: listColabs.map(d => d.ausencias), backgroundColor: '#ef4444', borderRadius: 4 },
-                        { label: 'Meio Período', data: listColabs.map(d => d.meio), backgroundColor: '#3b82f6', borderRadius: 4 }
-                    ]
-                },
-                options: {
-                    maintainAspectRatio: false, 
-                    scales: { x: { stacked: true }, y: { stacked: true } },
-                    plugins: { title: { display: true, text: 'POR COLABORADOR' }, datalabels: chartConfig }
-                }
-            });
+            const ctxColab = document.getElementById('colabBarChart');
+            if (ctxColab) {
+                colabBarChart = new Chart(ctxColab, {
+                    type: 'bar',
+                    data: {
+                        labels: listColabs.map(d => d.nome),
+                        datasets: [
+                            { label: 'Ausências', data: listColabs.map(d => d.ausencias), backgroundColor: '#ef4444', borderRadius: 4 },
+                            { label: 'Meio Período', data: listColabs.map(d => d.meio), backgroundColor: '#3b82f6', borderRadius: 4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false, 
+                        scales: { x: { stacked: true }, y: { stacked: true } },
+                        plugins: { title: { display: true, text: 'POR COLABORADOR' }, datalabels: chartConfig }
+                    }
+                });
+            }
 
             const sectorData = {};
             filtered.forEach(o => { if(o.setor) sectorData[o.setor] = (sectorData[o.setor] || 0) + 1; });
             const sortedSectors = Object.entries(sectorData).sort((a,b) => b[1] - a[1]);
 
-            sectorBarChart = new Chart(document.getElementById('sectorBarChart'), {
-                type: 'bar',
-                data: {
-                    labels: sortedSectors.map(d => d[0]),
-                    datasets: [{ label: 'Registros', data: sortedSectors.map(d => d[1]), backgroundColor: '#8b5cf6', borderRadius: 4 }]
-                },
-                options: {
-                    maintainAspectRatio: false, indexAxis: 'y',
-                    plugins: { title: { display: true, text: 'RANKING POR SETOR' }, datalabels: chartConfig }
-                }
-            });
+            const ctxSector = document.getElementById('sectorBarChart');
+            if (ctxSector) {
+                sectorBarChart = new Chart(ctxSector, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedSectors.map(d => d[0]),
+                        datasets: [{ label: 'Registros', data: sortedSectors.map(d => d[1]), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false, indexAxis: 'y',
+                        plugins: { title: { display: true, text: 'RANKING POR SETOR' }, datalabels: chartConfig }
+                    }
+                });
+            }
 
-            pieChart = new Chart(document.getElementById('pieChart'), {
-                type: 'doughnut',
-                data: { labels: Object.keys(motCounts), datasets: [{ data: Object.values(motCounts), backgroundColor: ['#fca5a5', '#6ee7b7', '#fde047', '#93c5fd'] }] },
-                options: { maintainAspectRatio: false, plugins: { title: { display: true, text: 'MOTIVOS' }, datalabels: chartConfig } }
-            });
+            const ctxPie = document.getElementById('pieChart');
+            if (ctxPie) {
+                pieChart = new Chart(ctxPie, {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(motCounts), datasets: [{ data: Object.values(motCounts), backgroundColor: ['#fca5a5', '#6ee7b7', '#fde047', '#93c5fd'] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'MOTIVOS' }, datalabels: chartConfig } }
+                });
+            }
         }
 
         function renderTable() {
-            const search = document.getElementById('searchEquipe').value.toLowerCase();
+            const search = document.getElementById('searchEquipe').value.trim().toLowerCase();
             const sector = document.getElementById('filterEquipeSetor').value;
-            const filtered = employees.filter(e => (e.nome.toLowerCase().includes(search) || (e.usuario && e.usuario.toLowerCase().includes(search))) && (sector === "" || e.setor === sector));
+            const filtered = employees
+                .filter(e => (e.nome.toLowerCase().includes(search) || (e.usuario && e.usuario.toLowerCase().includes(search))) && (sector === "" || e.setor === sector))
+                .sort((a, b) => a.nome.localeCompare(b.nome));
+
             document.getElementById('countEquipe').innerText = `Total: ${filtered.length}`;
             document.getElementById('employeeTableBody').innerHTML = filtered.map((e) => `
                 <tr class="hover:bg-slate-50 border-b border-slate-300">
-                    <td class="p-4 text-slate-400 font-mono text-xs">${e.id}</td>
                     <td class="p-4 font-bold uppercase text-xs">${e.nome}</td>
                     <td class="p-4 text-slate-500 uppercase text-xs">${e.setor}</td>
                     <td class="p-4 text-slate-500 uppercase text-xs">${e.usuario || '-'}</td>
@@ -626,44 +706,61 @@
         function closePasswordModal() { document.getElementById('passwordModal').classList.add('hidden'); }
 
         function exportToPPT() {
-            const originalLabels = showLabels; showLabels = true; buildCalendar();
+            const originalLabels = showLabels; 
+            showLabels = true; 
+            buildCalendar();
+            
             setTimeout(() => {
                 const pptx = new PptxGenJS();
                 const start = document.getElementById('filterStart').value, end = document.getElementById('filterEnd').value, sector = document.getElementById('filterSector').value || "TODOS OS SETORES";
-                let s1 = pptx.addSlide(); s1.background = { fill: "0F172A" };
+                
+                let s1 = pptx.addSlide(); 
+                s1.background = { fill: "0F172A" };
                 s1.addText("RELATÓRIO DE ABSENTEÍSMO", { x: 1, y: 1.2, w: 8, h: 1, fontSize: 32, color: "60a5fa", bold: true, align: "center" });
                 s1.addText(`SETOR: ${sector.toUpperCase()}`, { x: 1, y: 2.0, w: 8, h: 0.5, fontSize: 18, color: "FFFFFF", bold: true, align: "center" });
                 s1.addText(`Período: ${start} até ${end}`, { x: 1, y: 2.7, w: 8, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
-                let s2 = pptx.addSlide(); s2.addText("ESTATÍSTICAS GERAIS", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
+                
+                let s2 = pptx.addSlide(); 
+                s2.addText("ESTATÍSTICAS GERAIS", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
                 s2.addImage({ data: document.getElementById('colabBarChart').toDataURL(), x: 0.5, y: 0.8, w: 4.2, h: 4 });
                 s2.addImage({ data: document.getElementById('sectorBarChart').toDataURL(), x: 5.2, y: 0.8, w: 4.2, h: 4 });
-                let s3 = pptx.addSlide(); s3.addText("DISTRIBUIÇÃO POR MOTIVO", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
+                
+                let s3 = pptx.addSlide(); 
+                s3.addText("DISTRIBUIÇÃO POR MOTIVO", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
                 s3.addImage({ data: document.getElementById('pieChart').toDataURL(), x: 2.5, y: 1, w: 5, h: 4 });
-                pptx.writeFile({ fileName: "Absenteísmo.pptx" });
-                showLabels = originalLabels; buildCalendar();
+                
+                pptx.writeFile({ fileName: `Absenteismo_${sector}_${start}.pptx` });
+                showLabels = originalLabels; 
+                buildCalendar();
             }, 600);
         }
 
         async function exportToExcel(useFilters = true) {
-            let dataToExport = [];
             const sectorTerm = document.getElementById('filterSector').value;
             const start = document.getElementById('filterStart').value;
             const end = document.getElementById('filterEnd').value;
             
-            dataToExport = ocorrencias.filter(o => {
+            const dataToExport = ocorrencias.filter(o => {
                 const dateMatch = o.data >= start && o.data <= end;
                 const sectorMatch = sectorTerm === "" || o.setor === sectorTerm;
-                return dateMatch && sectorMatch;
+                const absenceMatch = o.motivo && o.motivo !== "";
+                return dateMatch && sectorMatch && absenceMatch;
             });
 
-            const formatted = dataToExport.map(({ id, colab, setor, usuario, data, motivo, comentario }) => ({
-                ID: id, Colaborador: colab, Setor: setor, Usuario: usuario, Data: data, Motivo: motivo, Comentario: comentario
+            const formatted = dataToExport.map(({ colab, setor, usuario, data, motivo, comentario }) => ({
+                Colaborador: colab, Setor: setor, Usuario: usuario, Data: data, Motivo: motivo, Comentario: comentario
             }));
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatted), "Ocorrências");
-            XLSX.writeFile(wb, "ausencias_filtradas.xlsx");
+            XLSX.writeFile(wb, `ausencias_${start}_${end}.xlsx`);
         }
+
+        window.addEventListener('resize', () => {
+            if (colabBarChart) colabBarChart.resize();
+            if (pieChart) pieChart.resize();
+            if (sectorBarChart) sectorBarChart.resize();
+        });
 
         init();
     </script>
