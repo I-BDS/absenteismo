@@ -303,15 +303,10 @@
             buildCalendar();
         }
 
-        /**
-         * CORREÇÃO TÉCNICA: Evita que o fuso horário altere o dia selecionado.
-         * Garante interpretação literal do ano-mês-dia.
-         */
         function parseDateSafely(dateStr) {
             if (!dateStr) return null;
             const parts = dateStr.split('-');
             if (parts.length !== 3) return null;
-            // Usamos o meio do dia (12:00) para neutralizar variações de fuso horário local
             return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
         }
 
@@ -467,11 +462,11 @@
         async function confirmOcorrencia() {
             const m = document.getElementById('motivo').value;
             const c = document.getElementById('comentario').value;
-            const emp = employees.find(e => e.nome === currentModalData.nome);
+            const emp = employees.find(e => e.id == currentModalData.id);
             if (!emp) return showToast("❌ Colaborador não encontrado");
 
             await sb.from('ocorrencias').delete().eq('colaborador_id', emp.id).eq('data', currentModalData.data);
-            if(m !== "") {
+            if(m !== "" || c.trim() !== "") {
                 await sb.from('ocorrencias').insert([{
                     colaborador_id: emp.id,
                     data: currentModalData.data,
@@ -556,7 +551,6 @@
             
             if(!curr || !endLimit) return;
 
-            // Limite de segurança para evitar loops infinitos em caso de erro na data
             let safetyCounter = 0;
             while(curr <= endLimit && safetyCounter < 366) { 
                 dateRange.push(new Date(curr)); 
@@ -581,7 +575,6 @@
             filteredEmps.forEach(emp => {
                 let row = `<tr><td class="p-4 border-r border-slate-300 sticky left-0 bg-white font-semibold z-10 text-[10px] sm:text-xs">${emp.nome}</td>`;
                 dateRange.forEach(d => {
-                    // Formatação YYYY-MM-DD para o fuso correto na comparação
                     const year = d.getFullYear();
                     const month = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
@@ -598,7 +591,7 @@
                         else if (oc.motivo === 'Meio Expediente') { cl = 'cell-meio'; initial = 'M'; }
                     }
                     if (cl === "" && isSunday) cl = "bg-red-50";
-                    row += `<td onclick="openModal('${emp.nome}', '${ds}')" class="border-r border-slate-300 p-1 cursor-pointer text-center font-bold relative ${cl} ${commentClass}">${initial}</td>`;
+                    row += `<td onclick="openModal('${emp.id}', '${ds}')" class="border-r border-slate-300 p-1 cursor-pointer text-center font-bold relative ${cl} ${commentClass}">${initial}</td>`;
                 });
                 body.innerHTML += row + '</tr>';
             });
@@ -701,12 +694,12 @@
                 </tr>`).join('');
         }
 
-        function openModal(nome, data) {
-            currentModalData = { nome, data };
-            const emp = employees.find(e => e.nome === nome);
+        function openModal(id, data) {
+            const emp = employees.find(e => e.id == id);
             if (!emp) return showToast("❌ Colaborador não encontrado");
+            currentModalData = { id: emp.id, nome: emp.nome, data };
             const ex = ocorrencias.find(o => o.colabId === emp.id && o.data === data);
-            document.getElementById('modalTitle').innerText = nome;
+            document.getElementById('modalTitle').innerText = emp.nome;
             document.getElementById('modalSubtitle').innerText = data;
             document.getElementById('motivo').value = ex ? ex.motivo : "";
             document.getElementById('comentario').value = ex ? ex.comentario : "";
