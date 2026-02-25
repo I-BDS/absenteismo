@@ -8,8 +8,12 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Absenteísmo">
+    <meta name="application-name" content="Absenteísmo">
+    <meta name="msapplication-TileColor" content="#0f172a">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3589/3589030.png">
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3589/3589030.png">
+    <link id="manifest-link" rel="manifest" href="data:application/manifest+json,{}">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -296,11 +300,39 @@
         let colabBarChart, pieChart, sectorBarChart;
         let showLabels = false;
 
+        function setupPWA() {
+            const manifest = {
+                name: "Mapa de Absenteísmo",
+                short_name: "Absenteísmo",
+                description: "Controle de frequência e ausências da equipe",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#0f172a",
+                theme_color: "#0f172a",
+                icons: [
+                    { src: "https://cdn-icons-png.flaticon.com/512/3589/3589030.png", sizes: "512x512", type: "image/png" },
+                    { src: "https://cdn-icons-png.flaticon.com/512/3589/3589030.png", sizes: "192x192", type: "image/png" }
+                ]
+            };
+            const manifestJSON = JSON.stringify(manifest);
+            const dataUri = "data:application/manifest+json," + encodeURIComponent(manifestJSON);
+            document.getElementById("manifest-link").href = dataUri;
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('Service Worker registrado', reg);
+                }).catch(err => {
+                    console.warn('Service Worker falhou', err);
+                });
+            }
+        }
+
         async function init() {
             loadFilters(); 
             await fetchData();
             renderTable();
             buildCalendar();
+            setupPWA();
         }
 
         function parseDateSafely(dateStr) {
@@ -559,11 +591,20 @@
             }
             
             const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+            const mesesAbrev = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            
             header.innerHTML = '<th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>';
             
             dateRange.forEach(d => { 
                 const isSunday = d.getDay() === 0;
-                header.innerHTML += `<th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}"><div class="flex flex-col items-center"><span>${d.getDate()}</span><span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span></div></th>`; 
+                header.innerHTML += `
+                    <th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}">
+                        <div class="flex flex-col items-center">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase">${mesesAbrev[d.getMonth()]}</span>
+                            <span class="text-sm">${d.getDate()}</span>
+                            <span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span>
+                        </div>
+                    </th>`; 
             });
 
             const filteredEmps = employees
