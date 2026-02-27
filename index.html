@@ -39,6 +39,21 @@
         .cell-atestado { background-color: #a7f3d0; border: 1px solid #34d399; }
         .cell-declaracao { background-color: #fef08a; border: 1px solid #facc15; }
         .cell-meio { background-color: #bfdbfe; border: 1px solid #60a5fa; }
+        
+        .row-afastado { background-color: #f0fdf4 !important; }
+        .row-desligado { background-color: #fef2f2 !important; }
+
+        #calendarBody td:first-child { 
+            background-color: #ffffff; 
+            position: sticky; 
+            left: 0; 
+            z-index: 10;
+            border-right: 2px solid #e2e8f0;
+        }
+
+        .row-afastado td:first-child { background-color: #f0fdf4 !important; }
+        .row-desligado td:first-child { background-color: #fef2f2 !important; }
+        
         .tab-content { transition: all 0.3s ease-in-out; }
         
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -116,6 +131,17 @@
             border-radius: 50%;
         }
 
+        .has-warning::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 5px;
+            height: 5px;
+            background-color: #f97316;
+            border-radius: 50%;
+        }
+
         @media (max-width: 640px) {
             .brand-title { letter-spacing: 0.2em; font-size: 0.9rem; padding-left: 0.75rem; }
             .brand-title-minimalist { letter-spacing: 0.3em; font-size: 1rem; padding-left: 1rem; }
@@ -187,11 +213,16 @@
                         </div>
 
                         <select id="filterSector" onchange="saveFilters(); buildCalendar()" class="px-3 py-2 bg-slate-50 border rounded-xl text-sm outline-none w-full sm:w-auto"></select>
+                        
                         <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border w-full sm:w-auto overflow-x-auto">
                             <input type="date" id="filterStart" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
                             <input type="date" id="filterEnd" onchange="saveFilters(); updateView()" class="bg-transparent text-xs font-bold outline-none">
                         </div>
+
+                        <button onclick="toggleCriticalFilter()" id="btnCritical" class="bg-slate-100 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all">CRÍTICOS: OFF</button>
+                        
                         <button onclick="resetDashFilters()" class="bg-slate-200 p-2.5 rounded-xl"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+                        
                         <div class="flex gap-1">
                             <button onclick="exportToExcel(true)" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold">Excel</button>
                             <button onclick="exportToPPT()" class="bg-orange-600 text-white px-3 py-2 rounded-xl text-xs font-bold">PPTX</button>
@@ -200,12 +231,17 @@
                 </div>
             </div>
 
+            <div class="flex gap-4 mb-2 px-2 text-[10px] font-bold uppercase tracking-wider">
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-[#f0fdf4] border border-green-200"></span> Afastado</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-[#fef2f2] border border-red-200"></span> Desligado</span>
+            </div>
+
             <div class="bg-white shadow-xl overflow-hidden mb-8 border border-slate-300 rounded-2xl">
                 <div class="scroll-calendar">
                     <table class="w-full text-xs border-collapse border-slate-300">
                         <thead class="sticky top-0 z-30">
                             <tr id="calendarHeader" class="bg-slate-50 border-b border-slate-300">
-                                <th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>
+                                <th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-40 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>
                             </tr>
                         </thead>
                         <tbody id="calendarBody" class="divide-y divide-slate-300"></tbody>
@@ -213,12 +249,13 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-8">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4 mb-8">
                 <div class="kpi-card bg-white p-4 rounded-2xl border shadow-sm"><p class="text-[10px] font-bold text-slate-400 uppercase">Total</p><h4 class="text-xl sm:text-2xl font-black" id="statTotal">0</h4></div>
                 <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-red-400 shadow-sm"><p class="text-[10px] font-bold text-red-400 uppercase">Faltas</p><h4 class="text-xl sm:text-2xl font-black text-red-600" id="statFaltas">0</h4></div>
                 <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-green-400 shadow-sm"><p class="text-[10px] font-bold text-green-400 uppercase">Atestados</p><h4 class="text-xl sm:text-2xl font-black text-green-600" id="statAtestados">0</h4></div>
                 <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-yellow-400 shadow-sm"><p class="text-[10px] font-bold text-yellow-500 uppercase">Declaração</p><h4 class="text-xl sm:text-2xl font-black text-yellow-600" id="statDeclaracao">0</h4></div>
-                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-blue-400 shadow-sm"><p class="text-[10px] font-bold text-blue-400 uppercase">Meio</p><h4 class="text-xl sm:text-2xl font-black text-blue-600" id="statMeio">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-blue-400 shadow-sm"><p class="text-[10px] font-bold text-blue-400 uppercase">Meio Período</p><h4 class="text-xl sm:text-2xl font-black text-blue-600" id="statMeio">0</h4></div>
+                <div class="kpi-card bg-white p-4 rounded-2xl border-l-4 border-l-orange-500 shadow-sm"><p class="text-[10px] font-bold text-orange-500 uppercase">Advertência</p><h4 class="text-xl sm:text-2xl font-black text-orange-600" id="statAdv">0</h4></div>
             </div>
 
             <div class="flex justify-end mb-4">
@@ -243,11 +280,16 @@
                         <span id="countEquipe" class="bg-slate-900 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase">Total: 0</span>
                     </div>
                 </div>
-                <div id="formCadastro" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-8 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300">
+                <div id="formCadastro" class="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-8 bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-300">
                     <input type="hidden" id="editId">
                     <input type="text" id="nome" placeholder="NOME" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
                     <input type="text" id="setor" placeholder="SETOR" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
                     <input type="text" id="usuario" placeholder="USUÁRIO" class="uppercase-input border p-3 rounded-xl text-sm" oninput="this.value = this.value.toUpperCase()">
+                    <select id="statusColab" class="border p-3 rounded-xl text-sm font-bold">
+                        <option value="ATIVO">✅ ATIVO</option>
+                        <option value="AFASTADO">🩹 AFASTADO</option>
+                        <option value="DESLIGADO">❌ DESLIGADO</option>
+                    </select>
                     <button onclick="saveEmployee()" id="btnSave" class="bg-slate-900 text-white rounded-xl font-bold p-3">SALVAR</button>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3 mb-6">
@@ -257,7 +299,7 @@
                 <div class="scroll-equipe rounded-xl border border-slate-300">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-900 text-white text-[10px] uppercase sticky top-0 z-10"><tr>
-                            <th class="p-4">Colaborador</th><th class="p-4">Setor</th><th class="p-4">Usuário</th><th class="p-4 text-center">Ações</th>
+                            <th class="p-4">Colaborador</th><th class="p-4">Setor</th><th class="p-4">Usuário</th><th class="p-4">Status</th><th class="p-4 text-center">Ações</th>
                         </tr></thead>
                         <tbody id="employeeTableBody" class="divide-y divide-slate-300 bg-white"></tbody>
                     </table>
@@ -278,6 +320,10 @@
                     <option value="Declaração">📄 DECLARAÇÃO</option>
                     <option value="Meio Expediente">🕒 MEIO PERÍODO</option>
                 </select>
+                <div class="flex items-center gap-2 bg-orange-50 p-3 rounded-xl border border-orange-200">
+                    <input type="checkbox" id="checkAdv" class="w-5 h-5 accent-orange-600">
+                    <label for="checkAdv" class="text-sm font-bold text-orange-800">APLICAR ADVERTÊNCIA</label>
+                </div>
                 <textarea id="comentario" oninput="this.value = this.value.toUpperCase()" rows="3" class="border-2 p-3 rounded-xl w-full text-sm outline-none" placeholder="OBSERVAÇÕES..."></textarea>
                 <div class="flex gap-3 pt-2">
                     <button onclick="closeModal()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-bold text-slate-500">CANCELAR</button>
@@ -299,6 +345,7 @@
         let currentModalData = null;
         let colabBarChart, pieChart, sectorBarChart;
         let showLabels = false;
+        let criticalOnly = false;
 
         function setupPWA() {
             const manifest = {
@@ -402,13 +449,13 @@
 
             const { data: colabs, error: err1 } = await sb
                 .from('colaboradores')
-                .select('id, nome, setor, usuario')
+                .select('*')
                 .order('nome', { ascending: true });
             
             if(err1) return showToast("❌ Erro ao buscar colaboradores");
             employees = colabs || [];
 
-            let query = sb.from('ocorrencias').select('id, colaborador_id, data, motivo, comentario');
+            let query = sb.from('ocorrencias').select('*');
             if (dataInicio && dataFim) query = query.gte('data', dataInicio).lte('data', dataFim);
             
             const { data: ocors, error: err2 } = await query;
@@ -424,7 +471,8 @@
                     colabId: o.colaborador_id,
                     data: o.data,
                     motivo: o.motivo,
-                    comentario: o.comentario
+                    comentario: o.comentario,
+                    advertencia: o.advertencia
                 }
             });
             populateSectorFilter();
@@ -442,6 +490,14 @@
             buildCalendar();
         }
 
+        function toggleCriticalFilter() {
+            criticalOnly = !criticalOnly;
+            const btn = document.getElementById('btnCritical');
+            btn.innerText = `CRÍTICOS: ${criticalOnly ? 'ON' : 'OFF'}`;
+            btn.className = criticalOnly ? 'bg-blue-600 text-white px-3 py-2 rounded-xl text-[10px] font-bold border transition-all' : 'bg-slate-100 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all';
+            buildCalendar();
+        }
+
         async function openDeleteModal(id) {
             document.getElementById('deleteModal').classList.remove('hidden');
             document.getElementById('confirmDeleteBtn').onclick = async () => {
@@ -456,16 +512,34 @@
         function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
 
         async function saveEmployee() {
-            const n = document.getElementById('nome').value, s = document.getElementById('setor').value, u = document.getElementById('usuario').value, id = document.getElementById('editId').value;
+            const n = document.getElementById('nome').value, 
+                  s = document.getElementById('setor').value, 
+                  u = document.getElementById('usuario').value, 
+                  st = document.getElementById('statusColab').value,
+                  id = document.getElementById('editId').value;
+
             if(!n || !s) return showToast("⚠️ Nome e Setor obrigatórios!");
+            
+            const payload = { 
+                nome: n.trim().toUpperCase(), 
+                setor: s.trim().toUpperCase(), 
+                usuario: u.trim().toUpperCase(),
+                status: st 
+            };
+
             if(id === "") {
-                await sb.from('colaboradores').insert([{ nome: n.trim().toUpperCase(), setor: s.trim().toUpperCase(), usuario: u.trim().toUpperCase() }]);
+                await sb.from('colaboradores').insert([payload]);
             } else {
-                await sb.from('colaboradores').update({ nome: n.trim().toUpperCase(), setor: s.trim().toUpperCase(), usuario: u.trim().toUpperCase() }).eq('id', id);
+                await sb.from('colaboradores').update(payload).eq('id', id);
                 document.getElementById('editId').value = "";
                 document.getElementById('btnSave').innerText = "SALVAR";
             }
-            document.getElementById('nome').value = ""; document.getElementById('setor').value = ""; document.getElementById('usuario').value = "";
+            
+            document.getElementById('nome').value = ""; 
+            document.getElementById('setor').value = ""; 
+            document.getElementById('usuario').value = "";
+            document.getElementById('statusColab').value = "ATIVO";
+            
             await fetchData();
             renderTable();
             buildCalendar();
@@ -478,6 +552,7 @@
             document.getElementById('nome').value = e.nome || "";
             document.getElementById('setor').value = e.setor || "";
             document.getElementById('usuario').value = e.usuario || "";
+            document.getElementById('statusColab').value = e.status || "ATIVO";
             document.getElementById('editId').value = e.id;
             document.getElementById('btnSave').innerText = "ATUALIZAR";
             
@@ -494,16 +569,18 @@
         async function confirmOcorrencia() {
             const m = document.getElementById('motivo').value;
             const c = document.getElementById('comentario').value;
+            const a = document.getElementById('checkAdv').checked;
             const emp = employees.find(e => e.id == currentModalData.id);
             if (!emp) return showToast("❌ Colaborador não encontrado");
 
             await sb.from('ocorrencias').delete().eq('colaborador_id', emp.id).eq('data', currentModalData.data);
-            if(m !== "" || c.trim() !== "") {
+            if(m !== "" || c.trim() !== "" || a) {
                 await sb.from('ocorrencias').insert([{
                     colaborador_id: emp.id,
                     data: currentModalData.data,
                     motivo: m,
-                    comentario: c.trim().toUpperCase()
+                    comentario: c.trim().toUpperCase(),
+                    advertencia: a
                 }]);
             }
             closeModal();
@@ -533,6 +610,9 @@
             localStorage.removeItem('absenteeism_filters');
             document.getElementById('searchName').value = "";
             document.getElementById('filterSector').value = "";
+            criticalOnly = false;
+            document.getElementById('btnCritical').innerText = 'CRÍTICOS: OFF';
+            document.getElementById('btnCritical').className = 'bg-slate-100 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-bold border transition-all';
             const cycle = getInitialCycleDates();
             document.getElementById('filterStart').value = cycle.start;
             document.getElementById('filterEnd').value = cycle.end;
@@ -580,9 +660,7 @@
             const dateRange = [];
             let curr = parseDateSafely(startVal);
             const endLimit = parseDateSafely(endVal);
-            
             if(!curr || !endLimit) return;
-
             let safetyCounter = 0;
             while(curr <= endLimit && safetyCounter < 366) { 
                 dateRange.push(new Date(curr)); 
@@ -592,47 +670,42 @@
             
             const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
             const mesesAbrev = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-            
-            header.innerHTML = '<th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-20 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>';
-            
+            header.innerHTML = '<th class="p-4 border-r border-slate-300 sticky left-0 bg-slate-50 z-40 w-40 sm:w-56 text-left font-bold text-slate-700">COLABORADOR</th>';
             dateRange.forEach(d => { 
                 const isSunday = d.getDay() === 0;
-                header.innerHTML += `
-                    <th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}">
-                        <div class="flex flex-col items-center">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase">${mesesAbrev[d.getMonth()]}</span>
-                            <span class="text-sm">${d.getDate()}</span>
-                            <span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span>
-                        </div>
-                    </th>`; 
+                header.innerHTML += `<th class="border-r border-slate-300 p-2 w-10 text-center ${isSunday ? 'bg-red-100' : ''}"><div class="flex flex-col items-center"><span class="text-[9px] font-bold text-slate-400 uppercase">${mesesAbrev[d.getMonth()]}</span><span class="text-sm">${d.getDate()}</span><span class="text-[9px] font-normal ${isSunday ? 'text-red-500' : 'text-slate-400'} uppercase">${diasSemana[d.getDay()]}</span></div></th>`; 
             });
 
-            const filteredEmps = employees
-                .filter(e => e.nome.toLowerCase().includes(searchTerm) && (sectorTerm === "" || e.setor === sectorTerm))
-                .sort((a, b) => a.nome.localeCompare(b.nome));
+            const filteredEmps = employees.filter(e => {
+                const matchesSearch = e.nome.toLowerCase().includes(searchTerm);
+                const matchesSector = sectorTerm === "" || e.setor === sectorTerm;
+                if (criticalOnly) {
+                    const hasCritical = ocorrencias.some(o => o.colabId === e.id && o.data >= startVal && o.data <= endVal && (o.motivo === 'Falta' || o.motivo === 'Meio Expediente'));
+                    return matchesSearch && matchesSector && hasCritical;
+                }
+                return matchesSearch && matchesSector;
+            }).sort((a, b) => a.nome.localeCompare(b.nome));
 
             body.innerHTML = '';
-            
             filteredEmps.forEach(emp => {
-                let row = `<tr><td class="p-4 border-r border-slate-300 sticky left-0 bg-white font-semibold z-10 text-[10px] sm:text-xs">${emp.nome}</td>`;
+                const rowClass = emp.status === "AFASTADO" ? "row-afastado" : (emp.status === "DESLIGADO" ? "row-desligado" : "");
+                let row = `<tr class="${rowClass}"><td class="p-4 border-r border-slate-300 sticky left-0 font-semibold z-10 text-[10px] sm:text-xs">${emp.nome}</td>`;
                 dateRange.forEach(d => {
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    const ds = `${year}-${month}-${day}`;
-
+                    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     const oc = ocorrencias.find(o => o.colabId === emp.id && o.data === ds);
                     const isSunday = d.getDay() === 0;
-                    let cl = "", initial = "", commentClass = (oc && oc.comentario && oc.comentario.trim() !== "") ? "has-comment" : "";
-                    
-                    if (oc && oc.motivo) {
+                    let cl = "", initial = "", indicators = "";
+                    if (oc) {
                         if (oc.motivo === 'Falta') { cl = 'cell-falta'; initial = 'F'; }
                         else if (oc.motivo === 'Atestado') { cl = 'cell-atestado'; initial = 'A'; }
                         else if (oc.motivo === 'Declaração') { cl = 'cell-declaracao'; initial = 'D'; }
                         else if (oc.motivo === 'Meio Expediente') { cl = 'cell-meio'; initial = 'M'; }
+                        
+                        if (oc.comentario && oc.comentario.trim() !== "") indicators += "has-comment ";
+                        if (oc.advertencia) indicators += "has-warning ";
                     }
                     if (cl === "" && isSunday) cl = "bg-red-50";
-                    row += `<td onclick="openModal('${emp.id}', '${ds}')" class="border-r border-slate-300 p-1 cursor-pointer text-center font-bold relative ${cl} ${commentClass}">${initial}</td>`;
+                    row += `<td onclick="openModal('${emp.id}', '${ds}')" class="border-r border-slate-300 p-1 cursor-pointer text-center font-bold relative ${cl} ${indicators}">${initial}</td>`;
                 });
                 body.innerHTML += row + '</tr>';
             });
@@ -641,23 +714,27 @@
 
         function updateCharts(start, end, fEmps) {
             const ids = fEmps.map(e => e.id);
-            const filtered = ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId) && o.motivo && o.motivo !== "");
-
+            let filtered = ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId) && o.motivo && o.motivo !== "");
             const motCounts = { 'Falta': 0, 'Atestado': 0, 'Declaração': 0, 'Meio Expediente': 0 };
-            filtered.forEach(o => { if(motCounts[o.motivo] !== undefined) motCounts[o.motivo]++; });
+            let totalAdv = 0;
+            
+            ocorrencias.filter(o => o.data >= start && o.data <= end && ids.includes(o.colabId)).forEach(o => {
+                if(motCounts[o.motivo] !== undefined) motCounts[o.motivo]++;
+                if(o.advertencia) totalAdv++;
+            });
             
             document.getElementById('statTotal').innerText = filtered.length;
             document.getElementById('statFaltas').innerText = motCounts['Falta'];
             document.getElementById('statAtestados').innerText = motCounts['Atestado'];
             document.getElementById('statDeclaracao').innerText = motCounts['Declaração'];
             document.getElementById('statMeio').innerText = motCounts['Meio Expediente'];
+            document.getElementById('statAdv').innerText = totalAdv;
 
             if (colabBarChart) colabBarChart.destroy();
             if (pieChart) pieChart.destroy();
             if (sectorBarChart) sectorBarChart.destroy();
 
             const chartConfig = { display: showLabels, color: '#fff', formatter: (val) => val > 0 ? val : '' };
-
             const listColabs = fEmps.map(e => {
                 const colabOcors = filtered.filter(o => o.colabId === e.id);
                 const ausencias = colabOcors.filter(o => o.motivo !== 'Meio Expediente').length;
@@ -688,7 +765,6 @@
             const sectorData = {};
             filtered.forEach(o => { if(o.setor) sectorData[o.setor] = (sectorData[o.setor] || 0) + 1; });
             const sortedSectors = Object.entries(sectorData).sort((a,b) => b[1] - a[1]);
-
             const ctxSector = document.getElementById('sectorBarChart');
             if (ctxSector) {
                 sectorBarChart = new Chart(ctxSector, {
@@ -718,16 +794,14 @@
         function renderTable() {
             const search = document.getElementById('searchEquipe').value.trim().toLowerCase();
             const sector = document.getElementById('filterEquipeSetor').value;
-            const filtered = employees
-                .filter(e => (e.nome.toLowerCase().includes(search) || (e.usuario && e.usuario.toLowerCase().includes(search))) && (sector === "" || e.setor === sector))
-                .sort((a, b) => a.nome.localeCompare(b.nome));
-
+            const filtered = employees.filter(e => (e.nome.toLowerCase().includes(search) || (e.usuario && e.usuario.toLowerCase().includes(search))) && (sector === "" || e.setor === sector)).sort((a, b) => a.nome.localeCompare(b.nome));
             document.getElementById('countEquipe').innerText = `Total: ${filtered.length}`;
             document.getElementById('employeeTableBody').innerHTML = filtered.map((e) => `
                 <tr class="hover:bg-slate-50 border-b border-slate-300">
                     <td class="p-4 font-bold uppercase text-xs">${e.nome}</td>
                     <td class="p-4 text-slate-500 uppercase text-xs">${e.setor}</td>
                     <td class="p-4 text-slate-500 uppercase text-xs">${e.usuario || '-'}</td>
+                    <td class="p-4 text-[10px] font-black uppercase">${e.status || 'ATIVO'}</td>
                     <td class="p-4 text-center">
                         <button onclick="editEmployee('${e.id}')" class="text-blue-600 font-bold mr-3">EDITAR</button>
                         <button onclick="openDeleteModal('${e.id}')" class="text-red-400 font-bold">EXCLUIR</button>
@@ -738,14 +812,17 @@
         function openModal(id, data) {
             const emp = employees.find(e => e.id == id);
             if (!emp) return showToast("❌ Colaborador não encontrado");
+            if (emp.status !== "ATIVO") return showToast(`⚠️ Status ${emp.status}: Alteração bloqueada.`);
             currentModalData = { id: emp.id, nome: emp.nome, data };
             const ex = ocorrencias.find(o => o.colabId === emp.id && o.data === data);
             document.getElementById('modalTitle').innerText = emp.nome;
             document.getElementById('modalSubtitle').innerText = data;
             document.getElementById('motivo').value = ex ? ex.motivo : "";
             document.getElementById('comentario').value = ex ? ex.comentario : "";
+            document.getElementById('checkAdv').checked = ex ? !!ex.advertencia : false;
             document.getElementById('modalOcorrenciaContainer').classList.remove('hidden');
         }
+
         function closeModal() { document.getElementById('modalOcorrenciaContainer').classList.add('hidden'); }
         function openPasswordModal() { document.getElementById('passwordModal').classList.remove('hidden'); }
         function closePasswordModal() { document.getElementById('passwordModal').classList.add('hidden'); }
@@ -754,26 +831,21 @@
             const originalLabels = showLabels; 
             showLabels = true; 
             buildCalendar();
-            
             setTimeout(() => {
                 const pptx = new PptxGenJS();
                 const start = document.getElementById('filterStart').value, end = document.getElementById('filterEnd').value, sector = document.getElementById('filterSector').value || "TODOS OS SETORES";
-                
                 let s1 = pptx.addSlide(); 
                 s1.background = { fill: "0F172A" };
                 s1.addText("RELATÓRIO DE ABSENTEÍSMO", { x: 1, y: 1.2, w: 8, h: 1, fontSize: 32, color: "60a5fa", bold: true, align: "center" });
                 s1.addText(`SETOR: ${sector.toUpperCase()}`, { x: 1, y: 2.0, w: 8, h: 0.5, fontSize: 18, color: "FFFFFF", bold: true, align: "center" });
                 s1.addText(`Período: ${start} até ${end}`, { x: 1, y: 2.7, w: 8, h: 0.5, fontSize: 14, color: "FFFFFF", align: "center" });
-                
                 let s2 = pptx.addSlide(); 
                 s2.addText("ESTATÍSTICAS GERAIS", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
                 s2.addImage({ data: document.getElementById('colabBarChart').toDataURL(), x: 0.5, y: 0.8, w: 4.2, h: 4 });
                 s2.addImage({ data: document.getElementById('sectorBarChart').toDataURL(), x: 5.2, y: 0.8, w: 4.2, h: 4 });
-                
                 let s3 = pptx.addSlide(); 
                 s3.addText("DISTRIBUIÇÃO POR MOTIVO", { x: 0.5, y: 0.2, fontSize: 18, bold: true });
                 s3.addImage({ data: document.getElementById('pieChart').toDataURL(), x: 2.5, y: 1, w: 5, h: 4 });
-                
                 pptx.writeFile({ fileName: `Absenteismo_${sector}_${start}.pptx` });
                 showLabels = originalLabels; 
                 buildCalendar();
@@ -781,21 +853,11 @@
         }
 
         async function exportToExcel(useFilters = true) {
-            const sectorTerm = document.getElementById('filterSector').value;
-            const start = document.getElementById('filterStart').value;
-            const end = document.getElementById('filterEnd').value;
-            
-            const dataToExport = ocorrencias.filter(o => {
-                const dateMatch = o.data >= start && o.data <= end;
-                const sectorMatch = sectorTerm === "" || o.setor === sectorTerm;
-                const absenceMatch = o.motivo && o.motivo !== "";
-                return dateMatch && sectorMatch && absenceMatch;
-            });
-
-            const formatted = dataToExport.map(({ colab, setor, usuario, data, motivo, comentario }) => ({
-                Colaborador: colab, Setor: setor, Usuario: usuario, Data: data, Motivo: motivo, Comentario: comentario
+            const start = document.getElementById('filterStart').value, end = document.getElementById('filterEnd').value;
+            const dataToExport = ocorrencias.filter(o => o.data >= start && o.data <= end && (o.motivo || o.advertencia));
+            const formatted = dataToExport.map(({ colab, setor, usuario, data, motivo, comentario, advertencia }) => ({
+                Colaborador: colab, Setor: setor, Usuario: usuario, Data: data, Motivo: motivo, Adv: advertencia ? 'SIM' : 'NÃO', Comentario: comentario
             }));
-
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatted), "Ocorrências");
             XLSX.writeFile(wb, `ausencias_${start}_${end}.xlsx`);
